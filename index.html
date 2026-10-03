@@ -365,6 +365,67 @@ var NCKU_LINEUP = [
 ];
 var NCKU_PITCHER = {num:'52', name:'楊睿升'};
 
+/* 2026/10/03 隊內賽預設：藍隊先攻、白隊先守 */
+var GAME_1003_PRESET = {
+  date:'2026-10-03', innings:9,
+  home:{name:'白隊', lineup:[
+    {num:'8', name:'黃子承',pos:'CF'},
+    {num:'22',name:'張冠瑀',pos:'SS'},
+    {num:'80',name:'羅博強',pos:'C'},
+    {num:'40',name:'林建曄',pos:'DH'},
+    {num:'',name:'許宏倫',pos:'3B'},
+    {num:'',name:'范譽',pos:'1B'},
+    {num:'',name:'蔡文瑋',pos:'RF'},
+    {num:'',name:'葉承銨',pos:'LF'},
+    {num:'',name:'張淳嘉',pos:'2B'}
+  ], pitcherOnly:{num:'18',name:'顏辰峻',pos:'P'}},
+  away:{name:'藍隊', lineup:[
+    {num:'35',name:'王學睿',pos:'CF'},
+    {num:'19',name:'葉詠翔',pos:'SS'},
+    {num:'',name:'吳尚霖',pos:'2B'},
+    {num:'52',name:'楊睿升',pos:'P'},
+    {num:'1',name:'黃昱綸',pos:'LF'},
+    {num:'91',name:'李友佳',pos:'3B'},
+    {num:'33',name:'張晉緁',pos:'1B'},
+    {num:'',name:'許昭威',pos:'RF'},
+    {num:'58',name:'王昱峻',pos:'C'}
+  ], pitcherOnly:null}
+};
+
+function preset1003Id(name){
+  var hex=''; for(var i=0;i<name.length;i++) hex+=name.charCodeAt(i).toString(16);
+  return 'p_1003_'+hex;
+}
+function ensure1003RosterPlayer(pl){
+  var aliases={'羅博強':['羅博強','羅博强'],'葉承銨':['葉承銨','葉宸銨'],'李友佳':['李友佳','李有佳']};
+  var names=aliases[pl.name]||[pl.name];
+  var hit=DB.roster.find(function(p){return names.indexOf(p.name)>=0;});
+  if(hit){ if(pl.num && !hit.number) hit.number=pl.num; return hit; }
+  var pid=preset1003Id(pl.name);
+  hit={id:pid,personId:pid,name:pl.name,number:pl.num||''}; DB.roster.push(hit); return hit;
+}
+function apply1003Preset(){
+  if(!UI.setup) return;
+  ensureNckuRoster();
+  UI.setup.date=GAME_1003_PRESET.date; UI.setup.innings=GAME_1003_PRESET.innings;
+  ['home','away'].forEach(function(side){
+    var src=GAME_1003_PRESET[side], t=UI.setup[side];
+    t.name=src.name; t.mode='preset'; t.bench=[];
+    t.lineup=src.lineup.map(function(pl){
+      var rp=ensure1003RosterPlayer(pl);
+      return {id:rp.id,personId:rp.personId||rp.id,name:pl.name,number:pl.num||rp.number||'',pos:pl.pos};
+    });
+    t._lineupSlots=new Array(9).fill(null);
+    t.lineup.forEach(function(pl,i){t._lineupSlots[i]=pl;});
+    if(src.pitcherOnly){
+      var pp=ensure1003RosterPlayer(src.pitcherOnly);
+      t.pitcherOnly={id:pp.id,personId:pp.personId||pp.id,name:src.pitcherOnly.name,number:src.pitcherOnly.num||pp.number||'',pos:'P'};
+    } else t.pitcherOnly=null;
+  });
+  saveDB();
+}
+
+
 function nckuPlayerId(name){
   var hex='';
   for(var i=0;i<name.length;i++) hex+=name.charCodeAt(i).toString(16);
@@ -507,6 +568,7 @@ function renderSetup(){
     '<label class="field">日期<input type="text" data-act="setDate" value="'+esc(s.date)+'"></label>'+
     '<label class="field">局數<input type="number" data-act="setInnings" value="'+s.innings+'" min="1" max="20"></label>'+
   '</div></div>'+
+  '<div class="card"><h2>今日比賽預設</h2><div class="row"><button class="btn primary" data-act="load1003Preset">載入 1003 預設｜藍隊 @ 白隊</button></div><p class="muted">藍隊先攻、白隊先守。一次帶入雙方打序、守位與先發投手，載入後仍可修改。</p></div>'+
   teamBlock('away')+teamBlock('home')+
   '<div class="card"><h2>先發打序 JSON</h2><div class="row"><button class="btn" data-act="exportLineupJson">匯出先發打序 JSON</button><button class="btn" data-act="importLineupJson">匯入先發打序 JSON</button><input id="lineup-json-file" type="file" accept="application/json,.json" class="hidden"></div></div><button class="btn primary big" style="width:100%" data-act="startGame">開始比賽 ▶</button>';
 }
@@ -1294,6 +1356,11 @@ function handleAct(t, ev){
   var act = t.dataset.act;
   switch(act){
     case 'newGame': UI.setup=null; UI.route='setup'; render(); break;
+    case 'load1003Preset': {
+      var hasAny=UI.setup && ((UI.setup.home.lineup||[]).length>0 || (UI.setup.away.lineup||[]).length>0);
+      if(hasAny && !confirm('載入 1003 預設會覆蓋目前雙方先發名單，確定嗎?')) return;
+      apply1003Preset(); render(); break;
+    }
     case 'goStart': UI.route='start'; UI.setup=null; render(); break;
     case 'goRoster': UI.route='roster'; render(); break;
     case 'goPresets': UI.route='presets'; render(); break;
