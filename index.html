@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>棒球逐球記錄系統 v3.6</title>
+<title>棒球逐球記錄系統 v3.7</title>
 <style>
 :root{
   --bg:#f2f2f2; --panel:#ffffff; --panel2:#e9e9e9; --ink:#161616; --muted:#767676;
@@ -264,6 +264,55 @@ function teamPitcher(team){
     (team.pitcherId ? team.bench.find(function(p){return p.id===team.pitcherId;}) : null);
 }
 
+/* ================= 投打習慣 =================
+   預設：右投右打
+   成大例外：
+   左投左打：林正展、蔡政哲、黃子承
+   右投左打：張永宸、吳尚霖
+   比賽中仍可隨時覆寫。
+*/
+var NCKU_LEFT_THROW_LEFT_BAT = ['林正展','蔡政哲','黃子承'];
+var NCKU_RIGHT_THROW_LEFT_BAT = ['張永宸','吳尚霖'];
+
+function defaultHandednessByName(name){
+  if(NCKU_LEFT_THROW_LEFT_BAT.indexOf(name)>=0) return {throws:'L', bats:'L'};
+  if(NCKU_RIGHT_THROW_LEFT_BAT.indexOf(name)>=0) return {throws:'R', bats:'L'};
+  return {throws:'R', bats:'R'};
+}
+function ensureHandedness(p){
+  if(!p) return p;
+  var d=defaultHandednessByName(p.name||'');
+  if(p.throws!=='L' && p.throws!=='R') p.throws=d.throws;
+  if(p.bats!=='L' && p.bats!=='R') p.bats=d.bats;
+  return p;
+}
+function handLabel(v){ return v==='L'?'左':'右'; }
+function syncPlayerHandednessToRoster(p){
+  if(!p) return;
+  ensureHandedness(p);
+  var rp=DB.roster.find(function(x){
+    return (p.personId && (x.personId===p.personId || x.id===p.personId)) ||
+           (p.id && (x.id===p.id || x.personId===p.id)) ||
+           x.name===p.name;
+  });
+  if(rp){ rp.throws=p.throws; rp.bats=p.bats; }
+}
+function setCurrentHandedness(kind, value){
+  var g=currentGame(); if(!g) return;
+  var st=g.state, p=null;
+  if(kind==='bats'){
+    var side=battingSideOf(g), team=g.teams[side];
+    p=team.lineup[st.battingIndex[side]];
+  }else{
+    p=teamPitcher(g.teams[fieldingSideOf(g)]);
+  }
+  if(!p) return;
+  ensureHandedness(p);
+  p[kind]=value;
+  syncPlayerHandednessToRoster(p);
+  saveDB(); render();
+}
+
 function render(){
   var app = document.getElementById('app');
   var html = '';
@@ -317,8 +366,11 @@ function renderStart(){
 /* ================= 球員名單庫 ================= */
 function renderRoster(){
   var rows = DB.roster.map(function(p){
+    ensureHandedness(p);
     return '<div class="playerrow"><span class="tag">#'+esc(p.number||'-')+'</span>'+
       '<div style="flex:1">'+esc(p.name)+'</div>'+
+      '<select data-act="rosterThrows" data-id="'+p.id+'" title="投球慣用手"><option value="R"'+(p.throws==='R'?' selected':'')+'>右投</option><option value="L"'+(p.throws==='L'?' selected':'')+'>左投</option></select>'+
+      '<select data-act="rosterBats" data-id="'+p.id+'" title="打擊慣用側"><option value="R"'+(p.bats==='R'?' selected':'')+'>右打</option><option value="L"'+(p.bats==='L'?' selected':'')+'>左打</option></select>'+
       '<button class="btn small danger" data-act="delRosterPlayer" data-id="'+p.id+'">刪除</button></div>';
   }).join('') || '<p class="muted">尚無球員,新增第一位吧</p>';
   return ''+
@@ -437,7 +489,7 @@ function ensureNckuRoster(){
     var num=r[0], name=r[1], pid=nckuPlayerId(name);
     var matches=DB.roster.filter(function(p){ return p.id===pid || p.personId===pid || p.name===name; });
     var p=matches.length?matches[matches.length-1]:null;
-    if(!p){ p={id:pid,personId:pid,name:name,number:num}; DB.roster.push(p); }
+    if(!p){ var hd=defaultHandednessByName(name); p={id:pid,personId:pid,name:name,number:num,throws:hd.throws,bats:hd.bats}; DB.roster.push(p); } ensureHandedness(p);
     p.id=pid; p.personId=pid; p.name=name;
     if(num!=='') p.number=num;
     seen[pid]=p;
@@ -656,9 +708,18 @@ function renderGame(){
       '<div><div class="muted">出局</div><div class="count-pill">'+st.outs+'</div></div>'+
       '<div><div class="muted">好壞球</div><div class="count-pill">'+st.strikes+'-'+st.balls+'</div></div>'+
       '<div class="spacer"></div>'+diamond+
-    '</div><hr>'+
-    '<div class="row"><div style="flex:1"><b>打者:</b> '+(batter? (esc(batter.name)+' #'+esc(batter.number||'')+' ('+batter.pos+')') : '無')+'</div>'+
-    '<div><b>投手:</b> '+(pitcher? esc(pitcher.name) : '無')+'</div></div>'+liveStatsHtml(g,batter,pitcher)+'</div>';
+    '</div><hr></div>';
+   (pitcher?ensureHandedness(pitcher):null);
+  var matchupHands =
+    '<div class="row" style="margin-top:8px;align-items:center;">'+
+      '<div style="flex:1"><b>打者:</b> '+(batter?(esc(batter.name)+' #'+esc(batter.number||'')+' ('+batter.pos+')'):'無')+
+        (batter?'　<span class="muted">打：</span><button class="btn small'+(batter.bats==='R'?' sel':'')+'" data-act="setCurrentBats" data-v="R">右打</button> <button class="btn small'+(batter.bats==='L'?' sel':'')+'" data-act="setCurrentBats" data-v="L">左打</button>':'')+
+      '</div>'+
+      '<div><b>投手:</b> '+(pitcher?esc(pitcher.name):'無')+
+        (pitcher?'　<span class="muted">投：</span><button class="btn small'+(pitcher.throws==='R'?' sel':'')+'" data-act="setCurrentThrows" data-v="R">右投</button> <button class="btn small'+(pitcher.throws==='L'?' sel':'')+'" data-act="setCurrentThrows" data-v="L">左投</button>':'')+
+      '</div>'+
+    '</div>';
+  topCard += matchupHands+liveStatsHtml(g,batter,pitcher)+'</div>';
 
   var leftFieldCard;
   if(UI.bip){
@@ -1225,6 +1286,8 @@ function bindGlobalHandlers(){
   document.body.onchange = function(ev){
     var t = ev.target;
     if(t.matches('[data-act="teamName"]')) { UI.setup[t.dataset.side].name = t.value; }
+    else if(t.matches('[data-act="rosterThrows"]')) { var rp1=DB.roster.find(function(p){return p.id===t.dataset.id;}); if(rp1){rp1.throws=t.value; saveDB();} }
+    else if(t.matches('[data-act="rosterBats"]')) { var rp2=DB.roster.find(function(p){return p.id===t.dataset.id;}); if(rp2){rp2.bats=t.value; saveDB();} }
     else if(t.matches('[data-act="setDate"]')) { UI.setup.date = t.value; }
     else if(t.matches('[data-act="setInnings"]')) { UI.setup.innings = parseInt(t.value)||9; }
     else if(t.matches('[data-act="setLineupPos"]')) { UI.setup[t.dataset.side].lineup[+t.dataset.i].pos = t.value; }
@@ -1366,7 +1429,7 @@ function handleAct(t, ev){
     case 'goPresets': UI.route='presets'; render(); break;
     case 'openGame': UI.gameId=t.dataset.id; UI.route = DB.games[t.dataset.id].finished?'end':'game'; render(); break;
     case 'delGame': if(confirm('確定刪除這場比賽紀錄?')){ checkpointDB('刪除比賽前'); delete DB.games[t.dataset.id]; DB.order=DB.order.filter(function(x){return x!==t.dataset.id;}); saveDB(); render(); } break;
-    case 'addRosterPlayer': { var name=document.getElementById('np-name').value.trim(); var num=document.getElementById('np-num').value.trim(); if(!name) return; checkpointDB('新增球員前'); var pid=uid('p'); DB.roster.push({id:pid,personId:pid, name:name, number:num}); saveDB(); render(); break; }
+    case 'addRosterPlayer': { var name=document.getElementById('np-name').value.trim(); var num=document.getElementById('np-num').value.trim(); if(!name) return; checkpointDB('新增球員前'); var pid=uid('p'); DB.roster.push({id:pid,personId:pid, name:name, number:num, throws:'R', bats:'R'}); saveDB(); render(); break; }
     case 'delRosterPlayer': checkpointDB('刪除球員前'); DB.roster=DB.roster.filter(function(p){return p.id!==t.dataset.id;}); saveDB(); render(); break;
     case 'loadNckuRoster': { checkpointDB('匯入成大名單前'); ensureNckuRoster(); render(); break; }
     case 'addFromRoster': { var side=t.dataset.side; var sel=document.getElementById('pick-'+side); var pid=sel.value; if(!pid) return; var p=DB.roster.find(function(x){return x.id===pid;}); UI.setup[side].lineup.push({id:p.id, name:p.name, number:p.number, pos:nextOpenPos(UI.setup[side].lineup)}); render(); break; }
@@ -1403,6 +1466,8 @@ function handleAct(t, ev){
     case 'toggleAdjustDefense': UI.adjustDefense=!UI.adjustDefense; UI.pickedFielder=null; render(); break;
     case 'selPitchType': currentGame().state.selPitchType=t.dataset.v; render(); break;
     case 'selZone': currentGame().state.selZone=+t.dataset.v; render(); break;
+    case 'setCurrentBats': setCurrentHandedness('bats',t.dataset.v); break;
+    case 'setCurrentThrows': setCurrentHandedness('throws',t.dataset.v); break;
     case 'pitchResult': handlePitchResult(t.dataset.v); break;
     case 'openPickoff': UI.wizard={type:'pickoff',data:{}}; renderModalWizard(); break;
     case 'openSteal': UI.wizard={type:'steal',data:{}}; renderModalWizard(); break;
@@ -1452,7 +1517,7 @@ function handleAct(t, ev){
       var nm2=document.getElementById('w-newname').value.trim(); var nu2=document.getElementById('w-newnum').value.trim();
       if(!nm2) return;
       var side4 = UI.wizard.type==='sub' && (d4.kind==='守備替換' || d4.kind==='投手更換') ? fieldingSideOf(g4) : battingSideOf(g4);
-      g4.teams[side4].bench.push({id:uid('p'),name:nm2,number:nu2}); saveDB(); renderModalWizard(); break;
+      g4.teams[side4].bench.push({id:uid('p'),name:nm2,number:nu2,throws:'R',bats:'R'}); saveDB(); renderModalWizard(); break;
     }
   }
 }
