@@ -1248,6 +1248,8 @@ function bipConfirmFinal(){
     batterId:batter?batter.id:null, batterName:batter?batter.name:'',
     inningBefore:g.state.inning, halfBefore:g.state.half, outsBefore:before.outs,
     ballsBefore:before.balls, strikesBefore:before.strikes, basesBefore:basesBefore,
+    // 擊球入場的最後一球也必須保留投球資料，供 25 宮格／球種統計使用。
+    pitchType:g.state.selPitchType, zone:g.state.selZone, pitchResult:'inplay',
     power:d.power, trajectory:d.trajectory, landing:d.landing, trigger:d.trigger,
     chain:d.chain, chainStr:d.chain.map(function(c){return POSNUM[c.pos]+(c.error?'E':'');}).join('-'),
     errorDetails:d.chain.filter(function(c){return c.error;}).map(function(c){return {pos:c.pos,type:c.errorType||'未分類',effect:c.errorEffect||'依跑壘結果'};}),
