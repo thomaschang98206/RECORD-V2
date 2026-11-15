@@ -538,8 +538,8 @@ var NCKU_ROSTER = [
    只影響「畫面顯示」與「選單排序」：資料裡存的、JSON 輸出的仍是原背號。
    大專盃結束後把 TOURNEY_ON 改成 false 即恢復原狀。 */
 var TOURNEY_ON = true;
-var TOURNEY_NUMS = {'楊睿升':'1','黃中彥':'2','陳聲皓':'3','張永宸':'4','羅博强':'5','林正展':'6','黃昱綸':'7','黃子承':'8','王學睿':'9','高子淳':'10','王昱峻':'11','葉詠翔':'12','林建曄':'13','謝安綸':'14','王祥宇':'15','許宏倫':'16','王曦賢':'17','顏辰峻':'18','蔡政哲':'19','蔡益宸':'20','吳尚霖':'21','張冠瑀':'22','謝竺庭':'23','張晉節':'24'};
-var TOURNEY_ALIAS = {'羅博強':'羅博强','王祥予':'王祥宇','張晉緁':'張晉節'}; /* 名單庫寫法 → 大專盃名單寫法 */
+var TOURNEY_NUMS = {'楊睿升':'1','黃中彥':'2','陳聲皓':'3','張永宸':'4','羅博强':'5','林正展':'6','黃昱綸':'7','黃子承':'8','王學睿':'9','高子淳':'10','王昱峻':'11','葉詠翔':'12','林建曄':'13','謝安綸':'14','王祥予':'15','許宏倫':'16','王曦賢':'17','顏辰峻':'18','蔡政哲':'19','蔡益宸':'20','吳尚霖':'21','張冠瑀':'22','謝竺庭':'23','張晉緁':'24'};
+var TOURNEY_ALIAS = {'羅博強':'羅博强','王祥宇':'王祥予','張晉節':'張晉緁'}; /* 其他寫法 → 正確寫法（王祥予、張晉緁、羅博强） */
 function tourneyNum(p){ if(!TOURNEY_ON||!p||!p.name) return null; var n=String(p.name).trim(); var v=TOURNEY_NUMS[n]; if(v==null&&TOURNEY_ALIAS[n]) v=TOURNEY_NUMS[TOURNEY_ALIAS[n]]; return v==null?null:v; }
 function dispNum(p){ if(!p) return ''; var t=tourneyNum(p); return t!=null?t:(p.number||''); }
 function origTag(p){ var t=tourneyNum(p); return (t!=null && String(p.number||'')!==t) ? ' <span class="muted" style="font-size:12px">原#'+esc(p.number||'-')+'</span>' : ''; }
