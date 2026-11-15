@@ -354,6 +354,10 @@ function render(){
   if(S.modal){ var w=document.createElement('div'); w.className='modal-back'; w.id='modal-back'; w.innerHTML='<div class="modal">'+S.modal+'</div>'; document.body.appendChild(w); }
 }
 function renderEmpty(){
+  if(S.mode==='live'){ var ls=S.liveStatus;
+    return '<div class="sit"><div class="l1"><b style="font-size:18px">及時資料處理</b><span class="spacer"></span><button class="btn small" data-act="settings">⚙ 設定</button></div>'+
+      '<div class="l3"><span><span class="dot'+(ls.err&&!/還沒有任何比賽/.test(ls.err)?' err':'')+'"></span>'+(ls.err?esc(ls.err):'連線中…')+'</span><span>歷史 '+S.hist.length+' 場</span></div></div>'+
+      '<div class="card empty"><h2>已連上雲端，等待比賽開始</h2><p>紀錄系統開始記錄（並啟用雲端即時備份）後，這裡會自動顯示目前比賽。</p></div>'; }
   return '<div class="sit"><div class="l1"><b style="font-size:18px">及時資料處理</b><span class="spacer"></span><button class="btn small" data-act="settings">⚙ 設定</button></div></div>'+
     '<div class="card empty"><h2>尚未連線到比賽</h2><p>按「⚙ 設定」填入 Apps Script 網址與密碼，就會自動讀取正在進行的比賽與歷史資料。</p><p>也可以在設定裡直接載入本機的比賽 JSON。</p>'+
     '<button class="btn primary" data-act="settings">開啟設定</button></div>';
