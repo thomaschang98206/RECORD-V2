@@ -490,7 +490,7 @@ function renderStart(){
 function renderRoster(){
   var rows = DB.roster.map(function(p){
     ensureHandedness(p);
-    return '<div class="playerrow"><span class="tag">#'+esc(p.number||'-')+'</span>'+
+    return '<div class="playerrow"><span class="tag">#'+esc(dispNum(p)||'-')+'</span>'+origTag(p)+
       '<div style="flex:1">'+esc(p.name)+'</div>'+
       '<select data-act="rosterThrows" data-id="'+p.id+'" title="投球慣用手"><option value="R"'+(p.throws==='R'?' selected':'')+'>右投</option><option value="L"'+(p.throws==='L'?' selected':'')+'>左投</option></select>'+
       '<select data-act="rosterBats" data-id="'+p.id+'" title="打擊慣用側"><option value="R"'+(p.bats==='R'?' selected':'')+'>右打</option><option value="L"'+(p.bats==='L'?' selected':'')+'>左打</option></select>'+
@@ -532,7 +532,26 @@ var NCKU_ROSTER = [
   ['82','黃楷彤'],['88','楊曜亘'],['91','李有佳'],['96','蔡政哲'],['98','黃中彥'],
   ['','黃振凌'],['','高子淳'],['','蔡文瑋'],['','張淳嘉'],['','謝安綸'],['','葉宸銨'],
   ['','黃聖翔'],['','蔡益宸'],['','許昭威'],['','林芝葶'],['','劉訓廷']
-];
+,['','許宏倫'],['','王曦賢'],['','吳尚霖']];
+
+/* ===== 大專盃暫用背號（2026-11-15）=====
+   只影響「畫面顯示」與「選單排序」：資料裡存的、JSON 輸出的仍是原背號。
+   大專盃結束後把 TOURNEY_ON 改成 false 即恢復原狀。 */
+var TOURNEY_ON = true;
+var TOURNEY_NUMS = {'楊睿升':'1','黃中彥':'2','陳聲皓':'3','張永宸':'4','羅博强':'5','林正展':'6','黃昱綸':'7','黃子承':'8','王學睿':'9','高子淳':'10','王昱峻':'11','葉詠翔':'12','林建曄':'13','謝安綸':'14','王祥宇':'15','許宏倫':'16','王曦賢':'17','顏辰峻':'18','蔡政哲':'19','蔡益宸':'20','吳尚霖':'21','張冠瑀':'22','謝竺庭':'23','張晉節':'24'};
+var TOURNEY_ALIAS = {'羅博強':'羅博强','王祥予':'王祥宇','張晉緁':'張晉節'}; /* 名單庫寫法 → 大專盃名單寫法 */
+function tourneyNum(p){ if(!TOURNEY_ON||!p||!p.name) return null; var n=String(p.name).trim(); var v=TOURNEY_NUMS[n]; if(v==null&&TOURNEY_ALIAS[n]) v=TOURNEY_NUMS[TOURNEY_ALIAS[n]]; return v==null?null:v; }
+function dispNum(p){ if(!p) return ''; var t=tourneyNum(p); return t!=null?t:(p.number||''); }
+function origTag(p){ var t=tourneyNum(p); return (t!=null && String(p.number||'')!==t) ? ' <span class="muted" style="font-size:12px">原#'+esc(p.number||'-')+'</span>' : ''; }
+/* 選單：大專盃名單球員排最前面（依大專盃背號），下面仍保留完整名單（重複沒關係） */
+function tpList(list, fn){
+  var tour=list.filter(function(p){return tourneyNum(p)!=null;}).sort(function(a,b){return (+tourneyNum(a))-(+tourneyNum(b));});
+  var all=list.map(fn).join('');
+  if(!tour.length) return all;
+  return '<div class="muted" style="margin:2px 0 6px;font-weight:700">大專盃名單</div>'+tour.map(fn).join('')+
+    '<div class="muted" style="margin:10px 0 6px;font-weight:700">全部名單</div>'+all;
+}
+
 var NCKU_LINEUP = [
   {num:'8',name:'黃子承',pos:'CF'},{num:'80',name:'羅博强',pos:'1B'},{num:'40',name:'林建曄',pos:'DH'},
   {num:'98',name:'黃中彥',pos:'C'},{num:'19',name:'葉詠翔',pos:'2B'},{num:'22',name:'張冠瑀',pos:'SS'},
@@ -673,7 +692,7 @@ function renderSetupSlots(side,t,posOptions){
   var slots=ensureSetupLineupSlots(t);
   return '<p class="muted">點球員欄位可直接從既有名單更換；按住左側 ☰ 可拖曳調整棒次。固定只有 1～9 棒。</p>'+slots.map(function(pl,i){
     var playerBtn=pl
-      ? '<button class="btn lineup-player-btn" data-act="openRosterSlot" data-side="'+side+'" data-slot="'+i+'"><b>'+esc(pl.name)+'</b> <span class="muted">#'+esc(pl.number||'-')+'</span></button>'
+      ? '<button class="btn lineup-player-btn" data-act="openRosterSlot" data-side="'+side+'" data-slot="'+i+'"><b>'+esc(pl.name)+'</b> <span class="muted">#'+esc(dispNum(pl)||'-')+'</span></button>'
       : '<button class="btn lineup-player-btn" data-act="openRosterSlot" data-side="'+side+'" data-slot="'+i+'">＋ 點此選擇第 '+(i+1)+' 棒</button>';
     var pos=pl ? '<select data-act="setRosterSlotPos" data-side="'+side+'" data-slot="'+i+'">'+posOptions(pl.pos)+'</select>' : '<span></span>';
     var clear=pl ? '<button class="btn small danger" data-act="clearRosterSlot" data-side="'+side+'" data-slot="'+i+'">清空</button>' : '<span></span>';
@@ -733,7 +752,7 @@ function renderSetup(){
     }
 
     var presetOpts = Object.keys(DB.presets).map(function(k){return '<option value="'+k+'"'+(s.startingDefense[side]===k?' selected':'')+'>'+DB.presets[k].label+'</option>';}).join('');
-    var pitcherOnlyRow = '<div class="playerrow"><span class="tag">P</span><button class="btn" style="flex:1;text-align:left" data-act="openSetupPitcherPicker" data-side="'+side+'">'+(t.pitcherOnly?('<b>'+esc(t.pitcherOnly.name)+'</b> <span class="muted">#'+esc(t.pitcherOnly.number||'-')+'</span>'):'＋ 點此從名單選擇先發投手')+'</button>'+ 
+    var pitcherOnlyRow = '<div class="playerrow"><span class="tag">P</span><button class="btn" style="flex:1;text-align:left" data-act="openSetupPitcherPicker" data-side="'+side+'">'+(t.pitcherOnly?('<b>'+esc(t.pitcherOnly.name)+'</b> <span class="muted">#'+esc(dispNum(t.pitcherOnly)||'-')+'</span>'):'＋ 點此從名單選擇先發投手')+'</button>'+ 
       (t.pitcherOnly?'<button class="btn small ghost" data-act="clearPitcherOnly" data-side="'+side+'">清除</button>':'')+'</div>';
     return '<div class="card"><h2>'+ (side==='home'?'主隊(我方)':'客隊(對方)') +'</h2>'+ 
       '<label class="field">隊名<input type="text" data-act="teamName" data-side="'+side+'" value="'+esc(t.name)+'"></label>'+ 
@@ -979,7 +998,7 @@ function renderGame(){
    (pitcher?ensureHandedness(pitcher):null);
   var matchupHands =
     '<div class="row" style="margin-top:8px;align-items:center;">'+
-      '<div style="flex:1"><b>打者:</b> '+(batter?(esc(batter.name)+' #'+esc(batter.number||'')+' ('+batter.pos+')'):'無')+
+      '<div style="flex:1"><b>打者:</b> '+(batter?(esc(batter.name)+' #'+esc(dispNum(batter)||'')+' ('+batter.pos+')'):'無')+
         (batter?'　<span class="muted">打：</span><button class="btn small'+(batter.bats==='R'?' sel':'')+'" data-act="setCurrentBats" data-v="R">右打</button> <button class="btn small'+(batter.bats==='L'?' sel':'')+'" data-act="setCurrentBats" data-v="L">左打</button>':'')+
       '</div>'+
       '<div><b>投手:</b> '+(pitcher?esc(pitcher.name):'無')+
@@ -1089,18 +1108,18 @@ function openSetupRosterPicker(side,slot){
   var t=UI.setup[side];
   var slots=ensureSetupLineupSlots(t);
   var used={}; slots.forEach(function(p,i){ if(p&&i!==slot) used[p.id]=true; });
-  var items=DB.roster.filter(function(p){return !used[p.id];}).map(function(p){
-    return '<button class="btn" style="width:100%;text-align:left;margin-bottom:6px" data-act="chooseRosterSlot" data-side="'+side+'" data-slot="'+slot+'" data-pid="'+p.id+'">#'+esc(p.number||'-')+' '+esc(p.name)+'</button>';
-  }).join('')||'<p class="muted">沒有可選球員。</p>';
+  var items=tpList(DB.roster.filter(function(p){return !used[p.id];}),function(p){
+    return '<button class="btn" style="width:100%;text-align:left;margin-bottom:6px" data-act="chooseRosterSlot" data-side="'+side+'" data-slot="'+slot+'" data-pid="'+p.id+'">#'+esc(dispNum(p)||'-')+' '+esc(p.name)+'</button>';
+  })||'<p class="muted">沒有可選球員。</p>';
   openModal('<h2>選擇第 '+(slot+1)+' 棒</h2><p class="muted">從既有名單選一位球員。</p><div style="max-height:60vh;overflow:auto">'+items+'</div><div class="row" style="margin-top:12px"><button class="btn ghost" data-act="wCancel">取消</button></div>');
 }
 function openSetupPitcherPicker(side){
   ensureNckuRoster();
   var t=UI.setup[side];
   var lineupIds={}; t.lineup.forEach(function(p){ if(p) lineupIds[p.id]=true; });
-  var items=DB.roster.filter(function(p){return !lineupIds[p.id] || (t.pitcherOnly&&t.pitcherOnly.id===p.id);}).map(function(p){
-    return '<button class="btn" style="width:100%;text-align:left;margin-bottom:6px" data-act="chooseSetupPitcher" data-side="'+side+'" data-pid="'+p.id+'">#'+esc(p.number||'-')+' '+esc(p.name)+'</button>';
-  }).join('')||'<p class="muted">沒有可選球員。</p>';
+  var items=tpList(DB.roster.filter(function(p){return !lineupIds[p.id] || (t.pitcherOnly&&t.pitcherOnly.id===p.id);}),function(p){
+    return '<button class="btn" style="width:100%;text-align:left;margin-bottom:6px" data-act="chooseSetupPitcher" data-side="'+side+'" data-pid="'+p.id+'">#'+esc(dispNum(p)||'-')+' '+esc(p.name)+'</button>';
+  })||'<p class="muted">沒有可選球員。</p>';
   openModal('<h2>選擇先發投手</h2>'+ 
     '<p class="muted">可從既有名單選擇，也可以直接使用 DEFAULT 或手動新增。此投手不進打擊順序。</p>'+ 
     '<div class="row" style="margin-bottom:10px"><button class="btn primary" data-act="chooseDefaultPitcher" data-side="'+side+'">DEFAULT 投手</button></div>'+ 
@@ -2045,7 +2064,7 @@ function wizardSubHtml(){
   }
   else if(d.kind==='投手更換'){
     var curP=teamPitcher(fieldTeam);
-    body='<p>目前投手：<b>'+(curP?esc(curP.name)+' #'+esc(curP.number||''):'無')+'</b></p><p class="muted">DH 制下只更換 pitcherId，不會改動打序；投手原本在打序時則直接替換該棒次。</p>'+benchPicker(fieldTeam,'inPlayer', curP?curP.id:'');
+    body='<p>目前投手：<b>'+(curP?esc(curP.name)+' #'+esc(dispNum(curP)||''):'無')+'</b></p><p class="muted">DH 制下只更換 pitcherId，不會改動打序；投手原本在打序時則直接替換該棒次。</p>'+benchPicker(fieldTeam,'inPlayer', curP?curP.id:'');
   }
   return '<h2>換人</h2><div class="row">'+kinds+'</div>'+body+
     '<div class="row" style="margin-top:14px;"><button class="btn ghost" data-act="wCancel">取消</button><div class="spacer"></div><button class="btn primary" data-act="wConfirmSub">確認</button></div>';
@@ -2054,12 +2073,13 @@ function wizardSubHtml(){
    選名單庫球員時 value 為 'roster:<id>'，確認換人時才加進本隊板凳。 */
 function benchPicker(team,key,excludeId){
   var cur=(UI.wizard&&UI.wizard.data&&UI.wizard.data[key])||'';
-  function opt(v,p){ return '<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(p.name)+' #'+esc(p.number||'-')+'</option>'; }
+  function opt(v,p){ return '<option value="'+esc(v)+'"'+(cur===v?' selected':'')+'>'+esc(p.name)+' #'+esc(dispNum(p)||'-')+'</option>'; }
   var benchList = team.bench.filter(function(p){return !excludeId || p.id!==excludeId;});
   var inTeam={}; team.lineup.concat(team.bench).forEach(function(p){ inTeam[p.id]=true; if(p.personId) inTeam[p.personId]=true; });
   if(excludeId) inTeam[excludeId]=true;
   var rosterList = DB.roster.filter(function(p){ return !inTeam[p.id] && !(p.personId && inTeam[p.personId]); });
-  var opts = (benchList.length ? '<optgroup label="本隊板凳">'+benchList.map(function(p){return opt(p.id,p);}).join('')+'</optgroup>' : '') +
+  var tB=benchList.filter(function(p){return tourneyNum(p)!=null;}).map(function(p){return opt(p.id,p);}), tR=rosterList.filter(function(p){return tourneyNum(p)!=null;}).sort(function(a,b){return (+tourneyNum(a))-(+tourneyNum(b));}).map(function(p){return opt('roster:'+p.id,p);});
+  var opts = ((tB.length||tR.length) ? '<optgroup label="大專盃名單">'+tB.concat(tR).join('')+'</optgroup>' : '') + (benchList.length ? '<optgroup label="本隊板凳">'+benchList.map(function(p){return opt(p.id,p);}).join('')+'</optgroup>' : '') +
     (rosterList.length ? '<optgroup label="球員名單庫">'+rosterList.map(function(p){return opt('roster:'+p.id,p);}).join('')+'</optgroup>' : '');
   return '<div class="row"><select data-act="wSetSel" data-k="'+key+'" style="min-width:180px"><option value="">-- 選擇替補球員 --</option>'+opts+'</select>'+
     '<input type="text" id="w-newname" placeholder="或臨時新增姓名"><input type="text" id="w-newnum" placeholder="背號" style="max-width:70px"><button class="btn small" data-act="wAddBenchQuick">新增到板凳</button></div>';
@@ -2472,7 +2492,7 @@ function exportLineupSetup(){
   saveFile('NCKU_LINEUP_'+(UI.setup.date||'game')+'.json',new Blob([JSON.stringify(o,null,2)],{type:'application/json'}));
 }
 function importLineupSetupFile(file){if(!file)return;var r=new FileReader();r.onload=function(){try{var o=JSON.parse(String(r.result||''));if(!o.home||!o.away)throw new Error('不是先發打序 JSON');UI.setup=UI.setup||{};UI.setup.date=o.date||new Date().toISOString().slice(0,10);UI.setup.innings=o.innings||9;UI.setup.home=o.home;UI.setup.away=o.away;UI.setup.startingDefense=o.startingDefense||{home:'normal',away:'normal'};saveDraft();render();alert('先發打序已匯入');}catch(e){alert('匯入失敗：'+e.message);}};r.readAsText(file);}
-function openDefenseRosterPicker(){var g=currentGame(),side=fieldingSideOf(g),team=g.teams[side];ensureNckuRoster();var rows=POS.map(function(pos){var cur=team.lineup.find(function(p){return p.pos===pos;})||(pos==='P'?teamPitcher(team):null);return '<div class="playerrow"><span class="tag">'+pos+'</span><div style="flex:1">'+(cur?esc(cur.name)+' #'+esc(cur.number||''):'空缺')+'</div><button class="btn small" data-act="chooseDefenseRoster" data-pos="'+pos+'" data-pid="">更換</button></div>';}).join(''); UI._defPos=null; openModal('<h2>場上守備員</h2><p class="muted">點「更換」後會開啟名單選擇。名單來自賽前匯入/球員名單庫，也可在換人面板手動新增。</p>'+rows+'<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="wCancel">關閉</button></div>');}
+function openDefenseRosterPicker(){var g=currentGame(),side=fieldingSideOf(g),team=g.teams[side];ensureNckuRoster();var rows=POS.map(function(pos){var cur=team.lineup.find(function(p){return p.pos===pos;})||(pos==='P'?teamPitcher(team):null);return '<div class="playerrow"><span class="tag">'+pos+'</span><div style="flex:1">'+(cur?esc(cur.name)+' #'+esc(dispNum(cur)||''):'空缺')+'</div><button class="btn small" data-act="chooseDefenseRoster" data-pos="'+pos+'" data-pid="">更換</button></div>';}).join(''); UI._defPos=null; openModal('<h2>場上守備員</h2><p class="muted">點「更換」後會開啟名單選擇。名單來自賽前匯入/球員名單庫，也可在換人面板手動新增。</p>'+rows+'<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="wCancel">關閉</button></div>');}
 function chooseDefenseRoster(pos,pid){
   var g=currentGame(),side=fieldingSideOf(g),team=g.teams[side];
   /* v3.8：已在場上（打序其他守位或目前投手）的球員不可再選，避免同一人重複上場 */
@@ -2481,7 +2501,7 @@ function chooseDefenseRoster(pos,pid){
   var curPitcher=teamPitcher(team); if(curPitcher && (!curAtPos||curPitcher.id!==curAtPos.id)) onField[curPitcher.id]=true;
   if(!pid){
     ensureNckuRoster();
-    var items=DB.roster.filter(function(p){return !onField[p.id] && !(curAtPos && curAtPos.id===p.id);}).map(function(p){return '<button class="btn" style="width:100%;text-align:left;margin-bottom:5px" data-act="chooseDefenseRoster" data-pos="'+pos+'" data-pid="'+p.id+'">#'+esc(p.number||'-')+' '+esc(p.name)+'</button>';}).join('')||'<p class="muted">沒有可選球員。</p>';
+    var items=tpList(DB.roster.filter(function(p){return !onField[p.id] && !(curAtPos && curAtPos.id===p.id);}),function(p){return '<button class="btn" style="width:100%;text-align:left;margin-bottom:5px" data-act="chooseDefenseRoster" data-pos="'+pos+'" data-pid="'+p.id+'">#'+esc(dispNum(p)||'-')+' '+esc(p.name)+'</button>';})||'<p class="muted">沒有可選球員。</p>';
     openModal('<h2>更換 '+pos+'</h2><p class="muted">已在場上的球員不會列出。</p><div style="max-height:60vh;overflow:auto">'+items+'</div><div class="row"><button class="btn ghost" data-act="wCancel">取消</button></div>');return;
   }
   if(onField[pid]){ alert('這位球員已經在場上'); return; }
