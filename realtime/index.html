@@ -530,7 +530,7 @@ function startLive(){
   stopLive(); if(!S.cfg.url) return;
   S.mode='live'; S.liveStatus={t:null,err:null};
   try{ var c=JSON.parse(localStorage.getItem(HIST_KEY)||'null'); if(c&&Array.isArray(c.games)) S.hist=c.games; }catch(e){}
-  api({action:'history'}).then(function(o){ S.hist=o.games||[]; try{ localStorage.setItem(HIST_KEY, JSON.stringify({t:Date.now(),games:S.hist})); }catch(e){} buildModel(); render(); }).catch(function(e){ S.liveStatus.err='歷史：'+e.message; render(); });
+  api({action:'history'}).then(function(o){ if(S.mode!=='live') return; S.hist=o.games||[]; try{ localStorage.setItem(HIST_KEY, JSON.stringify({t:Date.now(),games:S.hist})); }catch(e){} buildModel(); render(); }).catch(function(e){ if(S.mode!=='live') return; S.liveStatus.err='歷史：'+e.message; render(); });
   pollOnce(); S.pollTimer=setInterval(pollOnce, Math.max(3,+S.cfg.poll||5)*1000);
 }
 function stopLive(){ if(S.pollTimer){ clearInterval(S.pollTimer); S.pollTimer=null; } }
@@ -539,11 +539,12 @@ function pollOnce(){
   var pick=S.cfg.gameId&&S.cfg.gameId!=='auto'?Promise.resolve(S.cfg.gameId):api({action:'list'}).then(function(o){
     S.gameList=o.games||[]; var g=S.gameList.find(function(x){return !x.finished;})||S.gameList[0]; if(!g) throw new Error('雲端還沒有任何比賽'); return g.gameId; });
   pick.then(function(id){ return api({action:'latest',gameId:id}); }).then(function(o){
+    if(S.mode!=='live') return;   /* 已切到 DEMO／本機檔案：丟掉還在路上的回應 */
     var g=o.game, changed=!S.cur||S.cur.id!==g.id||S.cur.events.length!==g.events.length||S.cur.updatedAt!==g.updatedAt;
     S.liveStatus.t=Date.now(); S.liveStatus.err=null;
     if(changed){ S.cur=g; buildModel(); }
     if(!S.modal) render();
-  }).catch(function(e){ S.liveStatus.err=e.message; if(!S.modal) render(); }).then(function(){ S.liveStatus.busy=false; });
+  }).catch(function(e){ if(S.mode!=='live') return; S.liveStatus.err=e.message; if(!S.modal) render(); }).then(function(){ S.liveStatus.busy=false; });
 }
 function readFiles(files,cb){
   var arr=[], left=files.length; if(!left){ cb(arr); return; }
