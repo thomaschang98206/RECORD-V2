@@ -35,7 +35,8 @@ input,select{font:inherit;}
 
 /* ---------- 主版面 ---------- */
 .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px;grid-template-rows:auto minmax(0,1fr);grid-template-areas:"video side" "chat side";}
-.videoWrap{grid-area:video;position:relative;background:#000;aspect-ratio:16/9;max-height:calc(100dvh - 200px);width:100%;justify-self:center;}
+.videoWrap{grid-area:video;position:relative;background:#000;aspect-ratio:16/9;max-height:calc(100dvh - 340px);width:100%;justify-self:center;}
+.chat{min-height:200px;}
 .videoWrap iframe,.videoWrap #yt{position:absolute;inset:0;width:100%;height:100%;border:0;}
 .vph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);background:radial-gradient(circle at 50% 40%,#1f2a3a,#07080b);text-align:center;padding:10px;}
 .vph b{color:var(--text);font-size:18px;}
